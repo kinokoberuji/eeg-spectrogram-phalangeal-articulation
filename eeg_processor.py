@@ -1,13 +1,12 @@
-#!/usr/bin/env python
+from scipy import signal
+from os.path import join, isfile
 
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.mlab as mlab
-from scipy import signal
 
-class EEGrunt:
+class EEGProcessor:
     def __init__(self, path, filename, source, title = ""):
-
         self.path = path
         self.filename = filename
         self.source = source
@@ -23,14 +22,12 @@ class EEGrunt:
             self.channels = [1,2,3,4,5,6,7,8]
             self.col_offset = 0
 
-
         if self.source == 'muse':
             self.fs_Hz = 220.0
             self.NFFT = 220*2
             self.nchannels = 4
             self.channels = [1,2,3,4]
             self.col_offset = -1
-
 
         self.sample_block = 11
 
@@ -41,19 +38,15 @@ class EEGrunt:
         self.ecg_threshold_factor = 6
         self.hrv_window_length = 10
 
-
-
-
     def load_data(self):
-
         path = self.path
         filename = self.filename
         source = self.source
 
-        print("Loading EEG data: "+path+filename)
+        print("Loading EEG data: " + join(path, filename))
 
         try:
-            with open(path+filename) as file:
+            with open(join(path, filename)) as file:
                 pass
         except IOError:
             print 'EEG data file not found.'
@@ -62,7 +55,7 @@ class EEGrunt:
         if source == 'muse':
             skiprows = 0
             raw_data = []
-            with open(path + filename, 'rb') as csvfile:
+            with open(join(path, filename), 'rb') as csvfile:
                 for row in csvfile:
                     cols = row.split(',')
                     if(cols[1].strip() == "/muse/eeg"):
@@ -73,21 +66,19 @@ class EEGrunt:
 
         if source == 'openbci':
             skiprows = 5
-            raw_data = np.loadtxt(path + filename,
+            raw_data = np.loadtxt(join(path, filename),
                           delimiter=',',
                           skiprows=skiprows,
                           usecols=(0,1,2,3,4,5,6,7,8)
                           )
-
 
         if source == 'openbci-openvibe':
             skiprows = 1
-            raw_data = np.loadtxt(path + filename,
+            raw_data = np.loadtxt(join(path, filename),
                           delimiter=',',
                           skiprows=skiprows,
                           usecols=(0,1,2,3,4,5,6,7,8)
                           )
-
 
         self.raw_data = raw_data
 
@@ -95,8 +86,6 @@ class EEGrunt:
 
         print "Session length (seconds): "+str(len(self.t_sec)/self.fs_Hz)
         print "t_sec last: "+str(self.t_sec[:-1])
-
-
 
     def load_channel(self,channel):
         print("Loading channel: "+str(channel))
@@ -124,7 +113,6 @@ class EEGrunt:
         self.data = self.data[trim_start_samples:trim_end_samples]
         self.t_sec = self.t_sec[trim_start_samples:trim_end_samples]
 
-
     def packet_check(self):
         data_indices = self.data[:, 0]
         d_indices = data_indices[2:]-data_indices[1:-1]
@@ -139,7 +127,6 @@ class EEGrunt:
 
         b, a = signal.butter(2, hp_cutoff_Hz/(self.fs_Hz / 2.0), 'highpass')
         self.data = signal.lfilter(b, a, self.data, 0)
-
 
     def notch_mains_interference(self):
         notch_freq_Hz = np.array([60.0])  # main + harmonic frequencies
@@ -207,7 +194,6 @@ class EEGrunt:
         # convert the units of the spectral data
         self.spec_PSDperBin = self.spec_PSDperHz * self.fs_Hz / float(self.NFFT)
 
-
     def spectrogram(self):
         print("Generating spectrogram...")
         f_lim_Hz = [0, 50]   # frequency limits for plotting
@@ -220,13 +206,13 @@ class EEGrunt:
         plt.xlabel('Time (sec)')
         plt.ylabel('Frequency (Hz)')
         plt.title(self.plot_title('Spectrogram'))
-        # add annotation for FFT Parameters
-        ax.text(0.025, 0.95,
-            "NFFT = " + str(self.NFFT) + "\nfs = " + str(int(self.fs_Hz)) + " Hz",
-            transform=ax.transAxes,
-            verticalalignment='top',
-            horizontalalignment='left',
-            backgroundcolor='w')
+        # # add annotation for FFT Parameters
+        # ax.text(0.025, 0.95,
+        #     "NFFT = " + str(self.NFFT) + "\nfs = " + str(int(self.fs_Hz)) + " Hz",
+        #     transform=ax.transAxes,
+        #     verticalalignment='top',
+        #     horizontalalignment='left',
+        #     backgroundcolor='w')
         self.plotit(plt, self.plot_filename('Spectrogram'))
 
     def plot_title(self, title = ""):
@@ -268,184 +254,3 @@ class EEGrunt:
         plt.ylabel('EEG Amplitude (uVrms)')
         plt.title(self.plot_title('Trend Graph of '+band_name+' EEG Amplitude over Time'))
         self.plotit(plt, self.plot_filename(band_name+' EEG Amplitude Over Time'))
-
-    def get_rr_intervals(self):
-        print("Getting R-R Interval values...")
-
-        sig1 = self.data
-
-        print("Smoothing data...")
-
-        sig1 = self.smooth(sig1)
-        # Lather, rinse, repeat
-        sig1 = self.smooth(sig1)
-
-        sig1 = sig1[10:-10] # Smoothing makes the signal longer, so we need to chop it off
-
-        self.signal_diff = np.diff(sig1)
-        self.signal_diff = np.append(self.signal_diff,0) # Cheap way to get shape to match...
-
-        abs_diff = np.sqrt(self.signal_diff**2)
-        self.ecg_threshold = np.average(abs_diff)*self.ecg_threshold_factor
-
-        print("Threshold: " + str(self.ecg_threshold))
-
-        count = 0
-        last_val = .0
-        current_rr = .0
-        # This array gets a value added for every sample, so can be plotted in the time domain
-        self.rr_intervals_array = []
-        # This array is just RR values, useful for statistical purposes
-        self.rr_intervals_not_indexed_to_samples = []
-
-        for val in self.signal_diff:
-            count = count + 1
-
-            if (val > self.ecg_threshold and last_val < self.ecg_threshold):
-                current_rr = (count/self.fs_Hz)
-                self.rr_intervals_not_indexed_to_samples.append(count)
-                count = 0
-            last_val = val
-            self.rr_intervals_array.append(current_rr)
-
-        self.data = sig1
-
-    def plot_rr_intervals(self):
-        if hasattr(self, "rr_intervals_array") == False:
-            self.get_rr_intervals()
-
-        print("Plotting ECG signal + R-R intervals...")
-
-        #plt.figure(figsize=(10,5))
-
-        fig, ax1 = plt.subplots()
-
-        ax1.plot(self.t_sec,self.data, label='Smoothed ECG signal')
-        ax1.plot(self.t_sec,self.signal_diff, label='Signal diff')
-        ax1.plot(self.t_sec,self.data*0+self.ecg_threshold, 'orange', label='Threshold')
-
-        ax1.set_ylabel("Signal power (uV)")
-        ax1.legend(loc=3)
-
-        ax2 = ax1.twinx()
-        ax2.plot(self.t_sec,self.rr_intervals_array,'r',label='RR intervals')
-        ax2.set_ylabel("RR intervals (seconds)")
-
-        ax2.legend(loc=4)
-
-        plt.xlabel('Time (sec)')
-        plt.title(self.plot_title('ECG signal processing steps'))
-
-        plt.autoscale(True,'both',True)
-        self.plotit(plt)
-
-    def plot_heart_rate(self):
-        if hasattr(self, "rr_intervals_array") == False:
-            self.get_rr_intervals()
-
-        heart_rate_array = []
-
-        err_count = 0
-        for val in self.rr_intervals_array:
-            # This is probably a heart-beat
-            if val > 0.1905:
-                heart_rate = 60.0 / val
-
-            # if RR-interval < .1905 seconds, heart-rate > highest recorded value, 315 BPM. Probably an error!
-            elif val > 0 and val < 0.1905:
-                # So we'll warn the user that the data seems to have issues
-
-                err_count += 1
-
-                # ... and use the mean heart-rate from the data so far:
-                if len(heart_rate_array) > 0:
-                    heart_rate = np.mean(heart_rate_array)
-                else:
-                    heart_rate = 60.0
-            # Get around divide by 0 error
-            else:
-                heart_rate = 0.0
-
-            # Append the heart-rate
-            heart_rate_array.append(heart_rate)
-
-
-        if err_count > 0:
-            print("WARNING! RR-interval was shorter than fastest recorded heart-beat. [" + str(err_count) + " x]")
-
-        # Get the average heart rate over the session (for the plot title)
-        self.avg_heart_rate = np.mean(heart_rate_array)
-
-        plt.figure(figsize=(10,5))
-        plt.subplot(1,1,1)
-        plt.plot(self.t_sec, heart_rate_array)
-        plt.subplot(1,1,1)
-
-        plt.xlabel('Time (sec)')
-        plt.ylabel('Heart-rate (BPM)')
-        plt.title(self.plot_title('ECG Signal. \n Avg heart-rate: ' + str(int(self.avg_heart_rate)) + " BPM."))
-        #plt.ylim(-1, 200)
-        plt.autoscale(True,'both',True)
-        self.plotit(plt)
-
-    def plot_hrv(self):
-        if hasattr(self, "rr_intervals_array") == False:
-            self.get_rr_intervals()
-
-        hrv_std_array = []
-        index = 1
-        err_count = 0
-        chunk = []
-
-        # For using time indexed, padded RR data
-        '''
-        arr = self.rr_intervals_array
-        window_length = 20
-        window_length_samples = int(window_length*self.fs_Hz)
-        x_label = "Samples"
-        '''
-
-        # Non-time-indexed unpadded RR data
-        arr = self.rr_intervals_not_indexed_to_samples
-        window_length = self.hrv_window_length
-        window_length_samples = int(window_length*(self.avg_heart_rate/60))
-        x_label = "Heart beats"
-
-        print("Data length (samples):"+str(len(arr)))
-        print("Window length (samples):"+str(window_length_samples))
-
-        for val in arr:
-            if index < int(window_length_samples):
-                chunk = arr[:index:]
-            else:
-                chunk = arr[(index-window_length_samples):index:]
-
-            hrv_std_value = np.std(chunk)
-            hrv_std_array.append(hrv_std_value)
-            index += 1
-
-        dt = np.dtype('Float64')
-        hrv_std_array = np.array(hrv_std_array, dtype=dt)
-
-
-        self.session_hrv = np.std(self.rr_intervals_not_indexed_to_samples)
-
-        plt.figure(figsize=(10,5))
-        plt.subplot(1,1,1)
-        plt.plot(hrv_std_array)
-
-        plt.xlabel(x_label)
-        plt.ylabel('Standard deviation of R-R intervals (over '+str(self.hrv_window_length)+'s window)')
-        plt.title(self.plot_title('ECG Signal. \n  Standard deviation of R-R intervals over session (HRV): ' + str(self.session_hrv)))
-        plt.autoscale(True,'both',True)
-        self.plotit(plt)
-
-    def plot_coherence_fft(self, s1, s2, chan_a, chan_b):
-        plt.figure()
-        plt.ylabel("Coherence")
-        plt.xlabel("Frequency (Hz)")
-        plt.title(self.plot_title("Coherence between channels "+chan_a+" and " +chan_b +" in the "+str(config['band'][0])+"-"+str(config['band'][1])+" Hz band"))
-        plt.grid(True)
-        plt.xlim(config['band'][0],config['band'][1])
-        cxy, f = plt.cohere(s1, s2, NFFT, fs_Hz)
-        self.plotit(plt)

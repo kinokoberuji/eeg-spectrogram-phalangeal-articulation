@@ -26,8 +26,6 @@ def convert_txt_to_csv(input_path, output_path):
     print "Processing file: "+input_fn+" ... "
 
     output_data = []
-
-    print input_sample_rate, type(input_sample_rate)
     time_counter = 0
     time_increment = float(1)/float(input_sample_rate)
 

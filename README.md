@@ -2,5 +2,5 @@
 
 Research on mapping EEG signal inputs to finger motor control using deep learning
 
-Note: EEGrunt is a module created by Curiositry: https://github.com/curiositry, and converter is a module adapted from the convert_txt_to_csv module created by Curiositry: https://github.com/curiositry
+Note: eeg_processor.py and converter.py are modules adapted from the EEGrunt.py and convert_txt_to_csv.py modules from the EEGrunt package created by Curiositry: https://github.com/curiositry/EEGrunt
 `
