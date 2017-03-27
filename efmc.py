@@ -7,6 +7,7 @@ from keras.callbacks import Callback
 from keras.models import Model, model_from_json
 from keras.layers import Dense, Dropout, Flatten, Input
 from keras.layers.pooling import GlobalAveragePooling2D
+from keras.layers.recurrent import LSTM
 from keras.layers.wrappers import TimeDistributed
 from keras.optimizers import Nadam
 from keras.utils.io_utils import HDF5Matrix
@@ -27,6 +28,82 @@ class EEGFingerMotorControlModel(object):
 		self.time_points = time_points
 		self.efmc = None
 
+	def train_efmc_model(self):
+		""" Train the EEG finger motor control model
+		"""
+		print "\nTraining EFMC"
+		validation_ratio = 0.3
+		batch_size = 3
+		with h5py.File(self.training_save_fn, "r") as training_save_file:
+			sample_count = int(training_save_file.attrs["sample_count"])
+			sample_idxs = range(0, sample_count)
+			sample_idxs = np.random.permutation(sample_idxs)
+			training_sample_idxs = sample_idxs[0:int((1-validation_ratio)*sample_count)]
+			validation_sample_idxs = sample_idxs[int((1-validation_ratio)*sample_count):]
+			training_sequence_generator = self.generate_training_sequences(batch_size=batch_size,
+																		   training_save_file=training_save_file,
+																		   training_sample_idxs=training_sample_idxs)
+			validation_sequence_generator = self.generate_validation_sequences(batch_size=batch_size,
+																			   training_save_file=training_save_file,
+																			   validation_sample_idxs=validation_sample_idxs)
+			pbi = ProgressDisplay()
+			self.efmc.fit_generator(generator=training_sequence_generator,
+								    validation_data=validation_sequence_generator,
+								    samples_per_epoch=len(training_sample_idxs),
+								    nb_val_samples=len(validation_sample_idxs),
+								    nb_epoch=15,
+								    max_q_size=1,
+								    verbose=2,
+								    callbacks=[pbi],
+								    class_weight=None,
+								    nb_worker=1)
+
+	def generate_training_sequences(self, batch_size, training_save_file, training_sample_idxs):
+		""" Generates training sequences from HDF5 file on demand
+		"""
+		while True:
+			# generate sequences for training
+			training_sample_count = len(training_sample_idxs)
+			batches = int(training_sample_count/batch_size)
+			remainder_samples = training_sample_count%batch_size
+			if remainder_samples:
+				batches = batches + 1
+			# generate batches of samples
+			for idx in xrange(0, batches):
+				if idx == batches - 1:
+					batch_idxs = training_sample_idxs[idx*batch_size:]
+				else:
+					batch_idxs = training_sample_idxs[idx*batch_size:idx*batch_size+batch_size]
+				batch_idxs = sorted(batch_idxs)
+
+				X = training_save_file["X"][batch_idxs]
+				Y = training_save_file["Y"][batch_idxs]
+
+				yield (np.array(X), np.array(Y))
+
+	def generate_validation_sequences(self, batch_size, training_save_file, validation_sample_idxs):
+		""" Generates validation sequences from HDF5 file on demand
+		"""
+		while True:
+			# generate sequences for validation
+			validation_sample_count = len(validation_sample_idxs)
+			batches = int(validation_sample_count/batch_size)
+			remainder_samples = validation_sample_count%batch_size
+			if remainder_samples:
+				batches = batches + 1
+			# generate batches of samples
+			for idx in xrange(0, batches):
+				if idx == batches - 1:
+					batch_idxs = validation_sample_idxs[idx*batch_size:]
+				else:
+					batch_idxs = validation_sample_idxs[idx*batch_size:idx*batch_size+batch_size]
+				batch_idxs = sorted(batch_idxs)
+
+				X = training_save_file["X"][batch_idxs]
+				Y = training_save_file["Y"][batch_idxs]
+
+				yield (np.array(X), np.array(Y))
+
 	def print_efmc_summary(self):
 		""" Prints a summary representation of the OSR model
 		"""
@@ -39,10 +116,14 @@ class EEGFingerMotorControlModel(object):
 		print "\nGenerating EEG finger motor control model..."
 		with h5py.File(self.training_save_fn, "r") as training_save_file:
 			class_count = len(training_save_file.attrs["training_classes"].split(","))
+
+		# input layer
 		spectrograms = Input(shape=(8,
 								    3,
 								    self.freq_points,
 								    self.time_points))
+
+		# CNN layers
 		cnn_base = VGG16(input_shape=(3,
 									  self.freq_points,
 									  self.time_points),
@@ -52,8 +133,15 @@ class EEGFingerMotorControlModel(object):
 		cnn = Model(input=cnn_base.input, output=cnn_out)
 		cnn.trainable = False
 		encoded_spectrograms = TimeDistributed(cnn)(spectrograms)
+
+		# RNN layers
+		encoded_spectrograms = LSTM(64)(encoded_spectrograms)
+
+		# MLP layers
 		hidden_layer = Dense(output_dim=1024, activation="relu")(encoded_spectrograms)
 		outputs = Dense(output_dim=class_count, activation="softmax")(hidden_layer)
+
+		# compile model
 		efmc = Model([spectrograms], outputs)
 		optimizer = Nadam(lr=0.002,
 						  beta_1=0.9,
@@ -148,10 +236,20 @@ class EEGFingerMotorControlModel(object):
 																   dtype="i")
 			y_training_dataset[:] = y_train
 
+class ProgressDisplay(Callback):
+	""" Progress display callback
+	"""
+	def on_batch_end(self, epoch, logs={}):
+		print "    Batch {0:<4d} => Accuracy: {1:>8.4f} | Loss: {2:>8.4f} | Size: {3:>4d}".format(int(logs["batch"])+1,
+																					              float(logs["categorical_accuracy"]),
+																					              float(logs["loss"]),
+																					              int(logs["size"]))
+
 if __name__ == "__main__":
 	efmc = EEGFingerMotorControlModel(training_save_fn = "training_data.h5",
 									  freq_points = 250,
 									  time_points = 50)
-	efmc.process_training_data()
+	# efmc.process_training_data()
 	efmc.generate_efmc_model()
 	efmc.print_efmc_summary()
+	efmc.train_efmc_model()
