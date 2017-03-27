@@ -1,6 +1,16 @@
 from converter import convert_txt_to_csv
 from copy import deepcopy
 from eeg_processor import EEGProcessor
+from keras import backend as K
+from keras.applications.vgg16 import VGG16
+from keras.callbacks import Callback
+from keras.models import Model, model_from_json
+from keras.layers import Dense, Dropout, Flatten, Input
+from keras.layers.pooling import GlobalAveragePooling2D
+from keras.layers.wrappers import TimeDistributed
+from keras.optimizers import Nadam
+from keras.utils.io_utils import HDF5Matrix
+from pprint import pprint
 from math import ceil
 from numpy import log10
 from os import listdir
@@ -11,10 +21,49 @@ import h5py
 
 class EEGFingerMotorControlModel(object):
 	def __init__(self, training_save_fn, freq_points, time_points):
+		K.set_image_dim_ordering("th")
 		self.training_save_fn = training_save_fn
 		self.freq_points = freq_points
 		self.time_points = time_points
 		self.efmc = None
+
+	def print_efmc_summary(self):
+		""" Prints a summary representation of the OSR model
+		"""
+		print "\n*** MODEL SUMMARY ***"
+		self.efmc.summary()
+
+	def generate_efmc_model(self):
+		""" Builds the EEG finger motor control model
+		"""
+		print "\nGenerating EEG finger motor control model..."
+		with h5py.File(self.training_save_fn, "r") as training_save_file:
+			class_count = len(training_save_file.attrs["training_classes"].split(","))
+		spectrograms = Input(shape=(8,
+								    3,
+								    self.freq_points,
+								    self.time_points))
+		cnn_base = VGG16(input_shape=(3,
+									  self.freq_points,
+									  self.time_points),
+						 weights="imagenet",
+						 include_top=False)
+		cnn_out = GlobalAveragePooling2D()(cnn_base.output)
+		cnn = Model(input=cnn_base.input, output=cnn_out)
+		cnn.trainable = False
+		encoded_spectrograms = TimeDistributed(cnn)(spectrograms)
+		hidden_layer = Dense(output_dim=1024, activation="relu")(encoded_spectrograms)
+		outputs = Dense(output_dim=class_count, activation="softmax")(hidden_layer)
+		efmc = Model([spectrograms], outputs)
+		optimizer = Nadam(lr=0.002,
+						  beta_1=0.9,
+						  beta_2=0.999,
+						  epsilon=1e-08,
+						  schedule_decay=0.004)
+		efmc.compile(loss="categorical_crossentropy",
+					 optimizer=optimizer,
+					 metrics=["categorical_accuracy"])
+		self.efmc = efmc
 
 	def process_training_data(self):
 		""" Preprocesses training data
@@ -104,3 +153,5 @@ if __name__ == "__main__":
 									  freq_points = 250,
 									  time_points = 50)
 	efmc.process_training_data()
+	efmc.generate_efmc_model()
+	efmc.print_efmc_summary()
