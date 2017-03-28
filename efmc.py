@@ -10,6 +10,7 @@ from keras.layers.pooling import GlobalAveragePooling2D
 from keras.layers.recurrent import LSTM
 from keras.layers.wrappers import TimeDistributed
 from keras.optimizers import Nadam
+from keras.preprocessing.image import random_rotation, random_shift, random_shear, random_zoom
 from keras.utils.io_utils import HDF5Matrix
 from pprint import pprint
 from math import ceil
@@ -21,9 +22,10 @@ import numpy as np
 import h5py
 
 class EEGFingerMotorControlModel(object):
-	def __init__(self, training_save_fn, freq_points, time_points):
+	def __init__(self, training_save_fn, samples_generated_per_sample, freq_points, time_points):
 		K.set_image_dim_ordering("th")
 		self.training_save_fn = training_save_fn
+		self.samples_generated_per_sample = samples_generated_per_sample
 		self.freq_points = freq_points
 		self.time_points = time_points
 		self.efmc = None
@@ -33,7 +35,7 @@ class EEGFingerMotorControlModel(object):
 		"""
 		print "\nTraining EFMC"
 		validation_ratio = 0.3
-		batch_size = 3
+		batch_size = 32
 		with h5py.File(self.training_save_fn, "r") as training_save_file:
 			sample_count = int(training_save_file.attrs["sample_count"])
 			sample_idxs = range(0, sample_count)
@@ -205,15 +207,24 @@ class EEGFingerMotorControlModel(object):
 						sample = spec[0:self.freq_points,
 						              sample_idx*self.time_points:
 									  sample_idx*self.time_points+self.time_points]
-						sample = np.array([sample]*3)
-						x_train[channel_idx].append(sample)
+
+						format_spec = lambda spectrogram: np.array([spectrogram]*3)
+						x_train[channel_idx].append(format_spec(sample))
+
+						# increase sample data via image augmentation (1% deviations)
+						for _ in xrange(0, self.samples_generated_per_sample-1):
+							rotated_sample = random_rotation(np.array([sample]), rg=0.9)
+							shifted_sample = random_shift(rotated_sample, wrg=0.01, hrg=0.01)
+							sheared_sample = random_shear(shifted_sample, intensity=0.016)
+							zoomed_sample = random_zoom(sheared_sample, zoom_range=(1.01, 1.01))
+							x_train[channel_idx].append(format_spec(zoomed_sample[0]))
 		
 				# accumulate label data
-				training_sample_count += sample_count
+				training_sample_count += sample_count*self.samples_generated_per_sample
 				label = [0]*len(data_dirs)
 				label[class_idx] = 1
 				label = np.array(label)
-				y_train.extend([label]*sample_count)
+				y_train.extend([label]*(sample_count*self.samples_generated_per_sample))
 
 		# format sample and label data
 		x_train = [np.array([cha_1, cha_2, cha_3, cha_4, cha_5, cha_6, cha_7, cha_8])
@@ -236,6 +247,9 @@ class EEGFingerMotorControlModel(object):
 																   dtype="i")
 			y_training_dataset[:] = y_train
 
+		print "\nGenerated {0} training samples for training classes {1}".format(int(training_sample_count),
+			                                                                     ", ".join(data_dirs))
+
 class ProgressDisplay(Callback):
 	""" Progress display callback
 	"""
@@ -247,9 +261,10 @@ class ProgressDisplay(Callback):
 
 if __name__ == "__main__":
 	efmc = EEGFingerMotorControlModel(training_save_fn = "training_data.h5",
+									  samples_generated_per_sample = 10,
 									  freq_points = 250,
 									  time_points = 50)
-	# efmc.process_training_data()
+	efmc.process_training_data()
 	efmc.generate_efmc_model()
 	efmc.print_efmc_summary()
 	efmc.train_efmc_model()
