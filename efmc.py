@@ -211,9 +211,9 @@ class EEGFingerMotorControlModel(object):
 						format_spec = lambda spectrogram: np.array([spectrogram]*3)
 						x_train[channel_idx].append(format_spec(sample))
 
-						# increase sample data via image augmentation (1% shift deviations)
+						# increase sample data via image augmentation
 						for _ in xrange(0, self.samples_generated_per_sample-1):
-							shifted_sample = random_shift(np.array([sample]), wrg=0.01, hrg=0.01)
+							shifted_sample = random_shift(np.array([sample]), wrg=0.05, hrg=0.05)
 							x_train[channel_idx].append(format_spec(shifted_sample[0]))
 		
 				# accumulate label data
