@@ -137,10 +137,10 @@ class EEGFingerMotorControlModel(object):
 		encoded_spectrograms = TimeDistributed(cnn)(spectrograms)
 
 		# RNN layers
-		encoded_spectrograms = LSTM(64)(encoded_spectrograms)
+		encoded_spectrograms = LSTM(32)(encoded_spectrograms)
 
 		# MLP layers
-		hidden_layer = Dense(output_dim=1024, activation="relu")(encoded_spectrograms)
+		hidden_layer = Dense(output_dim=128, activation="relu")(encoded_spectrograms)
 		outputs = Dense(output_dim=class_count, activation="softmax")(hidden_layer)
 
 		# compile model
@@ -211,13 +211,10 @@ class EEGFingerMotorControlModel(object):
 						format_spec = lambda spectrogram: np.array([spectrogram]*3)
 						x_train[channel_idx].append(format_spec(sample))
 
-						# increase sample data via image augmentation (1% deviations)
+						# increase sample data via image augmentation (1% shift deviations)
 						for _ in xrange(0, self.samples_generated_per_sample-1):
-							rotated_sample = random_rotation(np.array([sample]), rg=0.9)
-							shifted_sample = random_shift(rotated_sample, wrg=0.01, hrg=0.01)
-							sheared_sample = random_shear(shifted_sample, intensity=0.016)
-							zoomed_sample = random_zoom(sheared_sample, zoom_range=(1.01, 1.01))
-							x_train[channel_idx].append(format_spec(zoomed_sample[0]))
+							shifted_sample = random_shift(np.array([sample]), wrg=0.01, hrg=0.01)
+							x_train[channel_idx].append(format_spec(shifted_sample[0]))
 		
 				# accumulate label data
 				training_sample_count += sample_count*self.samples_generated_per_sample
