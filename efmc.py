@@ -48,7 +48,7 @@ class EEGFingerMotorControlModel(object):
 			validation_sequence_generator = self.generate_validation_sequences(batch_size=batch_size,
 																			   training_save_file=training_save_file,
 																			   validation_sample_idxs=validation_sample_idxs)
-			pbi = ProgressDisplay()
+			progress_display = ProgressDisplay()
 			self.efmc.fit_generator(generator=training_sequence_generator,
 								    validation_data=validation_sequence_generator,
 								    samples_per_epoch=len(training_sample_idxs),
@@ -56,7 +56,7 @@ class EEGFingerMotorControlModel(object):
 								    nb_epoch=15,
 								    max_q_size=1,
 								    verbose=2,
-								    callbacks=[pbi],
+								    callbacks=[progress_display],
 								    class_weight=None,
 								    nb_worker=1)
 
@@ -137,10 +137,10 @@ class EEGFingerMotorControlModel(object):
 		encoded_spectrograms = TimeDistributed(cnn)(spectrograms)
 
 		# RNN layers
-		encoded_spectrograms = LSTM(32)(encoded_spectrograms)
+		encoded_spectrograms = LSTM(64)(encoded_spectrograms)
 
 		# MLP layers
-		hidden_layer = Dense(output_dim=128, activation="relu")(encoded_spectrograms)
+		hidden_layer = Dense(output_dim=256, activation="relu")(encoded_spectrograms)
 		outputs = Dense(output_dim=class_count, activation="softmax")(hidden_layer)
 
 		# compile model
