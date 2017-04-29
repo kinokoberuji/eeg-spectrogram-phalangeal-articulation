@@ -292,21 +292,16 @@ def execute_training_runs(training_config):
 		augmentation_magnitude = training_run["augmentation_magnitude"]
 		freq_points = training_run["freq_points"]
 		time_points = training_run["time_points"]
-		
-		print ("="*80
-			   "\n"
-			   "EXECUTING TRAINING RUN: {0}".format(run_name)
-			   "\n"
-			   "="*80
-			   "\n")
+
+		print "\n".join(["="*80,
+			             "EXECUTING TRAINING RUN: {0}".format(run_name),
+			             "="*80])
 
 		# iterate through trials
 		for trial in xrange(trials):
-			print ("\n"
-			       "TRIAL: {0}".format(trial)
-			       "\n"
-			       "-"*80
-			       "\n")
+			print "\n".join(["-"*80,
+				             "TRIAL: {0}".format(trial),
+			                 "-"*80])
 
 			efmc = EEGFingerMotorControlModel(training_save_fn = training_save_fn,
 								              samples_generated_per_sample = samples_generated_per_sample,
