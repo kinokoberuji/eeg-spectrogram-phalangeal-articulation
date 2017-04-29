@@ -293,6 +293,7 @@ def execute_training_runs(training_config):
 		freq_points = training_run["freq_points"]
 		time_points = training_run["time_points"]
 
+		results[run_name] = {}
 		print "\n".join(["="*80,
 			             "EXECUTING TRAINING RUN: {0}".format(run_name),
 			             "="*80])
