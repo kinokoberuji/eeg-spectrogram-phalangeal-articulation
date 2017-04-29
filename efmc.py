@@ -22,10 +22,13 @@ import numpy as np
 import h5py
 
 class EEGFingerMotorControlModel(object):
-	def __init__(self, training_save_fn, samples_generated_per_sample, freq_points, time_points):
+	def __init__(self, training_save_fn, samples_generated_per_sample, augmentation,
+				 augmentation_magnitude, freq_points, time_points):
 		K.set_image_dim_ordering("th")
 		self.training_save_fn = training_save_fn
 		self.samples_generated_per_sample = samples_generated_per_sample
+		self.augmentation = augmentation
+		self.augmentation_magnitude = augmentation_magnitude
 		self.freq_points = freq_points
 		self.time_points = time_points
 		self.efmc = None
@@ -49,16 +52,17 @@ class EEGFingerMotorControlModel(object):
 																			   training_save_file=training_save_file,
 																			   validation_sample_idxs=validation_sample_idxs)
 			progress_display = ProgressDisplay()
-			self.efmc.fit_generator(generator=training_sequence_generator,
-								    validation_data=validation_sequence_generator,
-								    samples_per_epoch=len(training_sample_idxs),
-								    nb_val_samples=len(validation_sample_idxs),
-								    nb_epoch=15,
-								    max_q_size=1,
-								    verbose=2,
-								    callbacks=[progress_display],
-								    class_weight=None,
-								    nb_worker=1)
+			metrics_history = self.efmc.fit_generator(generator=training_sequence_generator,
+								                      validation_data=validation_sequence_generator,
+								                      samples_per_epoch=len(training_sample_idxs),
+								                      nb_val_samples=len(validation_sample_idxs),
+								                      nb_epoch=10,
+								                      max_q_size=1,
+								                      verbose=2,
+								                      callbacks=[progress_display],
+								                      class_weight=None,
+								                      nb_worker=1)
+		return metrics_history
 
 	def generate_training_sequences(self, batch_size, training_save_file, training_sample_idxs):
 		""" Generates training sequences from HDF5 file on demand
@@ -137,15 +141,15 @@ class EEGFingerMotorControlModel(object):
 		encoded_spectrograms = TimeDistributed(cnn)(spectrograms)
 
 		# RNN layers
-		encoded_spectrograms = LSTM(64)(encoded_spectrograms)
+		encoded_spectrograms = LSTM(256)(encoded_spectrograms)
 
 		# MLP layers
-		hidden_layer = Dense(output_dim=256, activation="relu")(encoded_spectrograms)
+		hidden_layer = Dense(output_dim=1024, activation="relu")(encoded_spectrograms)
 		outputs = Dense(output_dim=class_count, activation="softmax")(hidden_layer)
 
 		# compile model
 		efmc = Model([spectrograms], outputs)
-		optimizer = Nadam(lr=0.002,
+		optimizer = Nadam(lr=0.00015,
 						  beta_1=0.9,
 						  beta_2=0.999,
 						  epsilon=1e-08,
@@ -176,7 +180,9 @@ class EEGFingerMotorControlModel(object):
 		# iterate through all class directories
 		for class_idx, data_dir in enumerate(data_dirs):
 			class_dir = join(csv_data_dir, data_dir)
-			class_files = [class_file for class_file in listdir(class_dir) if (isfile(join(class_dir, class_file))) and (".csv" in class_file)]
+			class_files = [class_file
+			               for class_file in listdir(class_dir)
+			               if (isfile(join(class_dir, class_file))) and (".csv" in class_file)]
 
 			# iterate through all class files
 			for class_file in class_files:
@@ -212,10 +218,17 @@ class EEGFingerMotorControlModel(object):
 						x_train[channel_idx].append(format_spec(sample))
 
 						# increase sample data via image augmentation
-						for _ in xrange(0, self.samples_generated_per_sample-1):
-							shifted_sample = random_shift(np.array([sample]), wrg=0.05, hrg=0.05)
-							x_train[channel_idx].append(format_spec(shifted_sample[0]))
-		
+						if self.augmentation:
+							for _ in xrange(0, self.samples_generated_per_sample-1):
+								shifted_sample = random_shift(np.array([sample]),
+									                          wrg = self.augmentation_magnitude, 
+									                          hrg = self.augmentation_magnitude)
+								x_train[channel_idx].append(format_spec(shifted_sample[0]))
+						# increase sample data via image replication
+						else:
+							for _ in xrange(0, self.samples_generated_per_sample-1):
+								x_train[channel_idx].append(format_spec(sample))
+
 				# accumulate label data
 				training_sample_count += sample_count*self.samples_generated_per_sample
 				label = [0]*len(data_dirs)
@@ -259,9 +272,12 @@ class ProgressDisplay(Callback):
 if __name__ == "__main__":
 	efmc = EEGFingerMotorControlModel(training_save_fn = "training_data.h5",
 									  samples_generated_per_sample = 10,
+									  augmentation = True,
+									  augmentation_magnitude = 0.05,
 									  freq_points = 250,
 									  time_points = 50)
 	efmc.process_training_data()
 	efmc.generate_efmc_model()
 	efmc.print_efmc_summary()
-	efmc.train_efmc_model()
+	metrics_history = efmc.train_efmc_model()
+
