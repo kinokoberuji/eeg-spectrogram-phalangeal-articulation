@@ -275,18 +275,47 @@ def get_training_configuration(training_config_fn):
 	""" Acquires training configuration from a file
 	"""
 	with open(training_config_fn, "r") as training_config_file:
-    	training_config = loads(training_config_file)
-    return training_config
+		training_config = loads(training_config_file.read())
+	return training_config
+
+def execute_training_runs(training_config):
+	""" Executes training runs from specified training configuration
+	"""
+	results = {}
+	# iterate through training runs
+	for training_run in training_config:
+		run_name = training_run["run_name"]
+		trials = training_run["trials"]
+		training_save_fn = training_run["training_save_fn"]
+		samples_generated_per_sample = training_run["samples_generated_per_sample"]
+		augmentation = training_run["augmentation"]
+		augmentation_magnitude = training_run["augmentation_magnitude"]
+		freq_points = training_run["freq_points"]
+		time_points = training_run["time_points"]
+
+		# iterate through trials
+		for trial in xrange(trials):
+			efmc = EEGFingerMotorControlModel(training_save_fn = training_save_fn,
+								              samples_generated_per_sample = samples_generated_per_sample,
+								              augmentation = augmentation,
+								              augmentation_magnitude = augmentation_magnitude,
+								              freq_points = freq_points,
+								              time_points = time_points)
+			efmc.process_training_data()
+			efmc.generate_efmc_model()
+			efmc.print_efmc_summary()
+			metrics_history = efmc.train_efmc_model()
+
+			# organize results
+			results[run_name][trial] = metrics_history
+
+	return results
+
 
 if __name__ == "__main__":
-	efmc = EEGFingerMotorControlModel(training_save_fn = "training_data.h5",
-									  samples_generated_per_sample = 10,
-									  augmentation = True,
-									  augmentation_magnitude = 0.05,
-									  freq_points = 250,
-									  time_points = 50)
-	efmc.process_training_data()
-	efmc.generate_efmc_model()
-	efmc.print_efmc_summary()
-	metrics_history = efmc.train_efmc_model()
+	training_config = get_training_configuration("training_config.json")
+	results = execute_training_runs(training_config)
+	
+
+
 
