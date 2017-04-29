@@ -17,6 +17,7 @@ from math import ceil
 from numpy import log10
 from os import listdir
 from os.path import join, isfile
+from json import dumps, loads
 
 import numpy as np
 import h5py
@@ -268,6 +269,14 @@ class ProgressDisplay(Callback):
 																					              float(logs["categorical_accuracy"]),
 																					              float(logs["loss"]),
 																					              int(logs["size"]))
+
+# auxilliary functions
+def get_training_configuration(training_config_fn):
+	""" Acquires training configuration from a file
+	"""
+	with open(training_config_fn, "r") as training_config_file:
+    	training_config = loads(training_config_file)
+    return training_config
 
 if __name__ == "__main__":
 	efmc = EEGFingerMotorControlModel(training_save_fn = "training_data.h5",
