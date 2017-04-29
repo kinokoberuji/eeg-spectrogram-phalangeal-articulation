@@ -17,7 +17,7 @@ from math import ceil
 from numpy import log10
 from os import listdir
 from os.path import join, isfile
-from json import dumps, loads
+from json import dump, load
 
 import numpy as np
 import h5py
@@ -275,7 +275,7 @@ def get_training_configuration(training_config_fn):
 	""" Acquires training configuration from a file
 	"""
 	with open(training_config_fn, "r") as training_config_file:
-		training_config = loads(training_config_file.read())
+		training_config = load(training_config_file)
 	return training_config
 
 def execute_training_runs(training_config):
@@ -292,9 +292,22 @@ def execute_training_runs(training_config):
 		augmentation_magnitude = training_run["augmentation_magnitude"]
 		freq_points = training_run["freq_points"]
 		time_points = training_run["time_points"]
+		
+		print ("="*80
+			   "\n"
+			   "EXECUTING TRAINING RUN: {0}".format(run_name)
+			   "\n"
+			   "="*80
+			   "\n")
 
 		# iterate through trials
 		for trial in xrange(trials):
+			print ("\n"
+			       "TRIAL: {0}".format(trial)
+			       "\n"
+			       "-"*80
+			       "\n")
+
 			efmc = EEGFingerMotorControlModel(training_save_fn = training_save_fn,
 								              samples_generated_per_sample = samples_generated_per_sample,
 								              augmentation = augmentation,
@@ -311,11 +324,17 @@ def execute_training_runs(training_config):
 
 	return results
 
+def save_results(results, results_save_fn):
+	""" Save results to a JSON file
+	"""
+	with open(results_save_fn, "w") as results_save_file:
+		dump(results, results_save_file)
 
 if __name__ == "__main__":
 	training_config = get_training_configuration("training_config.json")
 	results = execute_training_runs(training_config)
-	
+	save_results(results, "results/results.json")
+
 
 
 
