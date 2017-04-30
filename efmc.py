@@ -316,7 +316,7 @@ def execute_training_runs(training_config):
 			metrics_history = efmc.train_efmc_model()
 
 			# organize results
-			results[run_name][trial] = metrics_history
+			results[run_name][trial] = metrics_history.history
 
 	return results
 
