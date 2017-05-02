@@ -1,42 +1,37 @@
-[
-	{
-		"run_name": "Replication, 10x sample count",
-		"trials": 3,
-		"training_save_fn": "training_data.h5",
-		"samples_generated_per_sample": 10,
-		"augmentation": false,
-		"augmentation_magnitude": 0.00,
-		"freq_points": 250,
-		"time_points": 50
-	},
-	{
-		"run_name": "1% augmentation, 10x sample count",
-		"trials": 3,
-		"training_save_fn": "training_data.h5",
-		"samples_generated_per_sample": 10,
-		"augmentation": true,
-		"augmentation_magnitude": 0.01,
-		"freq_points": 250,
-		"time_points": 50
-	},
-	{
-		"run_name": "5% augmentation, 10x sample count",
-		"trials": 3,
-		"training_save_fn": "training_data.h5",
-		"samples_generated_per_sample": 10,
-		"augmentation": true,
-		"augmentation_magnitude": 0.05,
-		"freq_points": 250,
-		"time_points": 50
-	},
-	{
-		"run_name": "10% augmentation, 10x sample count",
-		"trials": 3,
-		"training_save_fn": "training_data.h5",
-		"samples_generated_per_sample": 10,
-		"augmentation": true,
-		"augmentation_magnitude": 0.10,
-		"freq_points": 250,
-		"time_points": 50
-	}
-]
+[{
+	"run_name": "Replication, 10x sample count",
+	"trials": 3,
+	"training_save_fn": "training_data.h5",
+	"samples_generated_per_sample": 10,
+	"augmentation": false,
+	"augmentation_magnitude": 0.00,
+	"freq_points": 250,
+	"time_points": 50
+}, {
+	"run_name": "1% augmentation, 10x sample count",
+	"trials": 3,
+	"training_save_fn": "training_data.h5",
+	"samples_generated_per_sample": 10,
+	"augmentation": true,
+	"augmentation_magnitude": 0.01,
+	"freq_points": 250,
+	"time_points": 50
+}, {
+	"run_name": "5% augmentation, 10x sample count",
+	"trials": 3,
+	"training_save_fn": "training_data.h5",
+	"samples_generated_per_sample": 10,
+	"augmentation": true,
+	"augmentation_magnitude": 0.05,
+	"freq_points": 250,
+	"time_points": 50
+}, {
+	"run_name": "10% augmentation, 10x sample count",
+	"trials": 3,
+	"training_save_fn": "training_data.h5",
+	"samples_generated_per_sample": 10,
+	"augmentation": true,
+	"augmentation_magnitude": 0.10,
+	"freq_points": 250,
+	"time_points": 50
+}]
