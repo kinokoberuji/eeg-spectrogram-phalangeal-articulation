@@ -23,14 +23,11 @@ def convert_txt_to_csv(input_path, output_path):
     
   for input_fn in txt_files:
 
-    print "Processing file: "+input_fn+" ... "
+    print "- {0}".format(input_fn)
 
     output_data = []
     time_counter = 0
     time_increment = float(1)/float(input_sample_rate)
-
-    print "Sample rate: "+str(input_sample_rate)+" ... "
-    print "Time increment: "+str(time_increment)+" ... "
 
     with open(os.path.join(input_path,input_fn), 'rb') as txtfile:
 
