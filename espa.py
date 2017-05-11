@@ -72,6 +72,40 @@ class ESPAModel(object):
 								                      nb_worker=1)
 		return metrics_history
 
+	def test_espa_model(self):
+		""" Test the ESPA model
+		"""
+		print "\nTesting ESPA Model"
+		batch_size = 32
+		with h5py.File(self.data_save_fn, "r") as data_save_file:
+			# indices
+			testing_sample_idxs = np.random.permutation(range(int(data_save_file.attrs["testing_sample_count"])))
+
+			# generators
+			testing_sequence_generator = self.generate_data(data_save_file=data_save_file,
+				                                            data_set="test",
+															sample_idxs=testing_sample_idxs,
+															batch_size=batch_size)
+
+			# calculate steps
+			sample_count = len(testing_sample_idxs)
+			batches = int(sample_count/batch_size)
+			remainder_samples = sample_count%batch_size
+			if remainder_samples:
+				batches = batches + 1
+
+			# test model
+			metrics = self.espa.evaluate_generator(testing_sequence_generator,
+				                                   batches)
+
+			# map metric names to metric values
+			metrics = {metric_name: metric_value for metric_name, metric_value in zip(self.espa.metrics_names, metrics)}
+
+			print "Accuracy: {0:>8.4f} | Loss: {1:>8.4f}".format(float(metrics["categorical_accuracy"]),
+																 float(metrics["loss"]))
+
+		return metrics
+
 	def generate_data(self, data_save_file, data_set, sample_idxs, batch_size):
 		""" Generates data from HDF5 file on demand
 		"""
@@ -134,7 +168,7 @@ class ESPAModel(object):
 		encoded_spectrograms = LSTM(256)(encoded_spectrograms)
 
 		# MLP layers
-		hidden_layer = Dense(output_dim=512, activation="relu")(encoded_spectrograms)
+		hidden_layer = Dense(output_dim=1024, activation="relu")(encoded_spectrograms)
 		outputs = Dense(output_dim=class_count, activation="softmax")(hidden_layer)
 
 		# compile model
@@ -368,10 +402,13 @@ def execute_training_runs(training_config):
 			espa.process_data()
 			espa.generate_espa_model()
 			espa.print_espa_summary()
-			metrics_history = espa.train_espa_model()
+			training_metrics_history = espa.train_espa_model()
+			testing_metrics = espa.test_espa_model()
 
 			# organize results
-			results[run_name][trial] = metrics_history.history
+			results[run_name][trial] = {}
+			results[run_name][trial]["train"] = training_metrics_history.history
+			results[run_name][trial]["test"] = testing_metrics
 
 	return results
 
