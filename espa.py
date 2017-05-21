@@ -25,9 +25,10 @@ import os
 import sys
 
 class ESPAModel(object):
-	def __init__(self, 
+	def __init__(self,
 		         data_save_fn, validation_ratio, testing_ratio, samples_generated_per_sample,
-				 augmentation, augmentation_magnitude, freq_points, time_points):
+		         augmentation, augmentation_magnitude, freq_points, time_points,
+		         espa_save_fn, espa_weights_save_fn):
 		K.set_image_dim_ordering("th")
 		self.data_save_fn = data_save_fn
 		self.validation_ratio = validation_ratio
@@ -37,6 +38,8 @@ class ESPAModel(object):
 		self.augmentation_magnitude = augmentation_magnitude
 		self.freq_points = freq_points
 		self.time_points = time_points
+		self.espa_save_fn = espa_save_fn
+		self.espa_weights_save_fn = espa_weights_save_fn
 		self.espa = None
 
 	def train_espa_model(self):
@@ -65,7 +68,7 @@ class ESPAModel(object):
 								                      validation_data=validation_sequence_generator,
 								                      samples_per_epoch=len(training_sample_idxs),
 								                      nb_val_samples=len(validation_sample_idxs),
-								                      nb_epoch=30,
+								                      nb_epoch=10,
 								                      verbose=2,
 								                      callbacks=[progress_display],
 								                      class_weight=None,
@@ -182,6 +185,47 @@ class ESPAModel(object):
 					 optimizer=optimizer,
 					 metrics=["categorical_accuracy"])
 		self.espa = espa
+
+	def save_espa_model(self):
+		""" Save the ESPA model to an HDF5 file
+		"""
+		# delete save files, if they already exist
+		try:
+			print "\nESPA save file \"{0}\" already exists! Overwriting previous saved file.".format(self.espa_save_fn)
+			os.remove(self.espa_save_fn)
+		except OSError:
+			pass
+		try:
+			print "ESPA weights save file \"{0}\" already exists! Overwriting previous saved file.\n".format(self.espa_weights_save_fn)
+			os.remove(self.espa_weights_save_fn)
+		except OSError:
+			pass
+
+		# save ESPA model
+		print "\nSaving ESPA model to \"{0}\"".format(self.espa_save_fn)
+		with open(self.espa_save_fn, "w") as espa_save_file:
+			espa_model_json = self.espa.to_json()
+			espa_save_file.write(espa_model_json)
+
+		# save ESPA model weights
+		print "Saving ESPA model weights to \"{0}\"".format(self.espa_weights_save_fn)
+		self.espa.save_weights(self.espa_weights_save_fn)
+
+		print "Saved ESPA model and weights to disk\n"
+
+	def load_espa_model(self):
+		""" Load the ESPA model from an HDF5 file
+		"""
+		print "\nLoading ESPA model from \"{0}\"".format(self.espa_save_fn)
+		with open(self.espa_save_fn, "r") as espa_save_file:
+			espa_model_json = espa_save_file.read()
+			self.espa = model_from_json(espa_model_json)
+
+		print "Loading ESPA model weights from \"{0}\"".format(self.espa_weights_save_fn)
+		with open(self.espa_weights_save_fn, "r") as espa_weights_save_file:
+			self.espa.load_weights(self.espa_weights_save_fn)
+			
+		print "Loaded ESPA model and weights from disk\n"
 
 	def process_data(self):
 		""" Preprocesses data
@@ -379,6 +423,8 @@ def execute_training_runs(training_config):
 		augmentation_magnitude = training_run["augmentation_magnitude"]
 		freq_points = training_run["freq_points"]
 		time_points = training_run["time_points"]
+		espa_save_fn = training_run["espa_save_fn"]
+		espa_weights_save_fn = training_run["espa_weights_save_fn"]
 
 		results[run_name] = {}
 		print "\n".join(["="*80,
@@ -398,12 +444,15 @@ def execute_training_runs(training_config):
 							 augmentation = augmentation,
 							 augmentation_magnitude = augmentation_magnitude,
 							 freq_points = freq_points,
-							 time_points = time_points)
+							 time_points = time_points,
+							 espa_save_fn = espa_save_fn,
+						     espa_weights_save_fn = espa_weights_save_fn)
 			espa.process_data()
 			espa.generate_espa_model()
 			espa.print_espa_summary()
 			training_metrics_history = espa.train_espa_model()
 			testing_metrics = espa.test_espa_model()
+			espa.save_espa_model()
 
 			# organize results
 			results[run_name][trial] = {}

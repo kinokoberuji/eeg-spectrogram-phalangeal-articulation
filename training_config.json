@@ -1,34 +1,40 @@
 [{
 	"run_name": "Replication, 10x sample count",
 	"trials": 3,
-	"data_save_fn": "data.h5",
+	"data_save_fn": "data/h5/rep_10x_data.h5",
 	"validation_ratio": 0.2,
 	"testing_ratio": 0.2,
 	"samples_generated_per_sample": 10,
 	"augmentation": false,
 	"augmentation_magnitude": 0.00,
 	"freq_points": 250,
-	"time_points": 50
+	"time_points": 50,
+	"espa_save_fn": "models/rep_10x_espa_model.json",
+    "espa_weights_save_fn": "models/rep_10x_espa_weights.h5"
 }, {
 	"run_name": "1% augmentation, 10x sample count",
 	"trials": 3,
-	"data_save_fn": "data.h5",
+	"data_save_fn": "data/h5/1pcaug_10x_data.h5",
 	"validation_ratio": 0.2,
 	"testing_ratio": 0.2,
 	"samples_generated_per_sample": 10,
 	"augmentation": true,
 	"augmentation_magnitude": 0.01,
 	"freq_points": 250,
-	"time_points": 50
+	"time_points": 50,
+    "espa_save_fn": "models/1pcaug_10x_espa_model.json",
+    "espa_weights_save_fn": "models/1pcaug_10x_espa_weights.h5"
 }, {
 	"run_name": "5% augmentation, 10x sample count",
 	"trials": 3,
-	"data_save_fn": "data.h5",
+	"data_save_fn": "data/h5/5pcaug_10x_data.h5",
 	"validation_ratio": 0.2,
 	"testing_ratio": 0.2,
 	"samples_generated_per_sample": 10,
 	"augmentation": true,
 	"augmentation_magnitude": 0.05,
 	"freq_points": 250,
-	"time_points": 50
+	"time_points": 50,
+    "espa_save_fn": "models/5pcaug_10x_espa_model.json",
+    "espa_weights_save_fn": "models/5pcaug_10x_espa_weights.h5"
 }]
