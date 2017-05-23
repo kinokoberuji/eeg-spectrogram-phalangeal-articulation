@@ -25,6 +25,8 @@ import os
 import sys
 
 class ESPAModel(object):
+	""" Core class for instantiating and interfacing with ESPA models
+	"""
 	def __init__(self,
 		         data_save_fn, validation_ratio, testing_ratio, samples_generated_per_sample,
 		         augmentation, augmentation_magnitude, freq_points, time_points,
@@ -43,7 +45,7 @@ class ESPAModel(object):
 		self.espa = None
 
 	def train_espa_model(self):
-		""" Train the ESPA model
+		""" Trains the ESPA model
 		"""
 		print "\nTraining ESPA Model"
 		batch_size = 32
@@ -76,7 +78,7 @@ class ESPAModel(object):
 		return metrics_history
 
 	def test_espa_model(self):
-		""" Test the ESPA model
+		""" Tests the ESPA model
 		"""
 		print "\nTesting ESPA Model"
 		batch_size = 32
@@ -138,13 +140,13 @@ class ESPAModel(object):
 				yield (np.array(X), np.array(Y))
 
 	def print_espa_summary(self):
-		""" Prints a summary representation of the OSR model
+		""" Prints a summary representation of the ESPA model
 		"""
 		print "\n*** MODEL SUMMARY ***"
 		self.espa.summary()
 
 	def generate_espa_model(self):
-		""" Builds the ESPA model
+		""" Compiles the ESPA model
 		"""
 		print "\nGenerating ESPA model..."
 		with h5py.File(self.data_save_fn, "r") as data_save_file:
@@ -187,7 +189,7 @@ class ESPAModel(object):
 		self.espa = espa
 
 	def save_espa_model(self):
-		""" Save the ESPA model to an HDF5 file
+		""" Saves the ESPA model and weights
 		"""
 		# delete save files, if they already exist
 		try:
@@ -214,7 +216,7 @@ class ESPAModel(object):
 		print "Saved ESPA model and weights to disk\n"
 
 	def load_espa_model(self):
-		""" Load the ESPA model from an HDF5 file
+		""" Loads the ESPA model and weights
 		"""
 		print "\nLoading ESPA model from \"{0}\"".format(self.espa_save_fn)
 		with open(self.espa_save_fn, "r") as espa_save_file:
@@ -228,7 +230,7 @@ class ESPAModel(object):
 		print "Loaded ESPA model and weights from disk\n"
 
 	def process_data(self):
-		""" Preprocesses data
+		""" Preprocesses sample data
 		"""
 		print "\nProcessing data..."
 
@@ -394,6 +396,8 @@ class ProgressDisplay(Callback):
 	""" Progress display callback
 	"""
 	def on_batch_end(self, epoch, logs={}):
+		""" Displays metric values at the end of each batch
+		"""
 		print "    Batch {0:<4d} => Accuracy: {1:>8.4f} | Loss: {2:>8.4f} | Size: {3:>4d}".format(int(logs["batch"])+1,
 																					              float(logs["categorical_accuracy"]),
 																					              float(logs["loss"]),
@@ -401,14 +405,14 @@ class ProgressDisplay(Callback):
 
 # auxilliary functions
 def get_training_configuration(training_config_fn):
-	""" Acquires training configuration from a file
+	""" Acquires training configuration data from a training configuration file
 	"""
 	with open(training_config_fn, "r") as training_config_file:
 		training_config = load(training_config_file)
 	return training_config
 
 def execute_training_runs(training_config):
-	""" Executes training runs from specified training configuration
+	""" Executes training runs from a specified training configuration
 	"""
 	results = {}
 	# iterate through training runs
@@ -462,7 +466,7 @@ def execute_training_runs(training_config):
 	return results
 
 def save_results(results, results_save_fn):
-	""" Save results to a JSON file
+	""" Save compiled results data to a JSON file
 	"""
 	with open(results_save_fn, "w") as results_save_file:
 		dump(results, results_save_file)
